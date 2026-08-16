@@ -146,7 +146,7 @@
     <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
 
     <script>
-        // استخدام مسار Vercel الداخلي بعد حل مشكلة الكلمة المحجوزة
+        // استخدام مسار Vercel الداخلي 
         const TARGET_URL = '/proxy-tanta';
         
         // ASP.NET State Variables
@@ -241,9 +241,7 @@
             addLog(`جاري الاتصال بخوادم Vercel لجلب بيانات الجامعة...`);
             
             try {
-                // نطلب المسار الداخلي الذي سيقوم Vercel بتحويله للجامعة
                 const response = await fetch(TARGET_URL);
-                
                 if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
                 
                 const html = await response.text();
@@ -259,7 +257,6 @@
                 
             } catch (error) {
                 addLog(`❌ فشل الاتصال: ${error.message}`, 'error');
-                addLog('تلميح: جرب تغيير "السيرفر الوكيل" من الإعدادات وأوقف مانع الإعلانات.', 'warning');
             } finally {
                 document.getElementById('loadingInit').classList.add('hidden');
                 document.getElementById('fetchDataBtn').disabled = false;
@@ -273,7 +270,6 @@
             addLog(`🔄 جاري جلب نتائج [${selectedFacultyText}]...`);
             
             try {
-                // بناء هيكل البيانات المطابق لـ ASP.NET Web Forms
                 const formData = new URLSearchParams();
                 formData.append('__EVENTTARGET', aspState.facultySelectName);
                 formData.append('__EVENTARGUMENT', '');
@@ -293,65 +289,66 @@
                 if (!response.ok) throw new Error(`Server returned ${response.status}`);
 
                 const html = await response.text();
-                
-                // تحديث الـ ViewState للمرات القادمة
                 extractASPState(html);
 
-                // تحليل الصفحة الجديدة
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 
-                // 1. استخراج الإعلانات وتنسيقها في بطاقات (Cards) بدلاً من الجدول التقليدي
                 let dataTableHtml = '<div class="flex flex-col items-center justify-center py-12 text-gray-400"><i class="fas fa-folder-open text-4xl mb-3 opacity-50"></i><p class="font-medium">لم يتم إعلان أي نتائج حتى الآن لهذه الكلية.</p></div>';
-                
-                // استخدام Map لمنع التكرار نهائياً بناءً على (القسم والفرقة)
                 let uniqueResultsMap = new Map();
                 
-                // البحث في جميع الخلايا أو النصوص عن صيغة إعلان النتيجة
+                // قائمة بالكلمات المستبعدة (العناوين العامة التي لا تمثل أقسام)
+                const excludedPhrases = [
+                    'العام الأكاديمي',
+                    'النتائج المعلنة',
+                    'حتى الآن',
+                    'الفصل الدراسي',
+                    'جامعة طنطا'
+                ];
+
                 doc.querySelectorAll('td, span, a').forEach(el => {
                     let text = el.textContent.trim().replace(/\s+/g, ' ');
-                    // التأكد أن النص يحتوي على النمط الخاص بالنتيجة
-                    if (text.includes('الفرقة') && text.includes('-')) {
+                    
+                    // التحقق مما إذا كان النص يحتوي على أي من الكلمات المستبعدة
+                    let isExcluded = excludedPhrases.some(phrase => text.includes(phrase));
+
+                    // شروط صارمة: يجب أن يحتوي على كلمة "الفرقة"، وعلامة "-" ولا يكون من الجمل المستبعدة
+                    if (!isExcluded && text.includes('الفرقة') && text.includes('-')) {
                         const parts = text.split(/\s*-\s*/);
                         let rawPath = parts[0] ? parts[0].trim() : '';
                         let year = parts[1] ? parts[1].trim() : '';
                         
                         if (rawPath && year) {
                             let pathParts = rawPath.split('/');
-                            // جلب الخانة الثالثة (القسم الدقيق) أو الأخيرة كبديل
                             let major = pathParts.length >= 3 ? pathParts[2].trim() : (pathParts[pathParts.length - 1]?.trim() || 'قسم غير محدد');
                             
-                            // المفتاح الفريد لمنع التكرار
-                            let uniqueKey = `${major}-${year}`;
-                            
-                            // إضافة النتيجة فقط إذا لم تكن موجودة مسبقاً
-                            if (!uniqueResultsMap.has(uniqueKey) && major !== 'قسم غير محدد') {
-                                uniqueResultsMap.set(uniqueKey, { major, year });
+                            // تأكيد إضافي أن القسم المستخرج ليس جملة طويلة جداً (أقل من 60 حرف عادةً)
+                            if (major.length < 60) {
+                                let uniqueKey = `${major}-${year}`;
+                                
+                                if (!uniqueResultsMap.has(uniqueKey) && major !== 'قسم غير محدد') {
+                                    uniqueResultsMap.set(uniqueKey, { major, year });
+                                }
                             }
                         }
                     }
                 });
 
                 if (uniqueResultsMap.size > 0) {
-                    // بناء شبكة بطاقات بتصميم مبسط وواضح
                     let newHtml = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-2">`;
                     
                     uniqueResultsMap.forEach(result => {
                         newHtml += `
                         <div class="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-400 transition-all duration-300 overflow-hidden flex flex-col h-full items-center text-center justify-center">
                             
-                            <!-- تأثيرات الخلفية عند تمرير الماوس -->
                             <div class="absolute -left-12 -top-12 w-32 h-32 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0 pointer-events-none"></div>
                             
                             <div class="relative z-10 w-full flex flex-col items-center">
-                                <!-- الرأس: الفرقة -->
                                 <div class="mb-4">
                                     <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-sm font-black border border-indigo-100 shadow-sm">
                                         <i class="fas fa-graduation-cap text-indigo-500 text-lg"></i> ${result.year}
                                     </span>
                                 </div>
-
-                                <!-- المحتوى: القسم -->
                                 <div>
                                     <h3 class="text-xl font-black text-slate-800 leading-snug group-hover:text-blue-700 transition-colors">${result.major}</h3>
                                 </div>
@@ -366,7 +363,6 @@
                 document.getElementById('currentResultsContainer').innerHTML = dataTableHtml;
                 document.getElementById('lastUpdateTime').textContent = new Date().toLocaleTimeString('ar-EG', { hour12: true });
 
-                // 2. التحقق من وجود تغييرات جديدة في حجم النصوص
                 doc.querySelectorAll('script, style, head, nav, footer').forEach(el => el.remove());
                 const bodyText = doc.body.textContent.replace(/\s+/g, ' ').trim();
                 const textLength = bodyText.length;
