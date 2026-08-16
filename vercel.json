@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/proxy-tanta",
+      "destination": "https://tdb.tanta.edu.eg/student_results/newresults.aspx"
+    }
+  ]
+}
