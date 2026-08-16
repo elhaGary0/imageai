@@ -164,12 +164,6 @@
         const logContainer = document.getElementById('logContainer');
         const alertSound = document.getElementById('alertSound');
 
-        // Function to dynamically get the chosen proxy
-        function getActiveProxy() {
-            const proxyElement = document.getElementById('proxySelect');
-            return proxyElement ? proxyElement.value : 'https://corsproxy.io/?';
-        }
-
         function addLog(message, type = 'info') {
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
             const div = document.createElement('div');
@@ -275,7 +269,6 @@
         async function performCheckPOST() {
             const selectedFacultyValue = document.getElementById('facultySelect').value;
             const selectedFacultyText = document.getElementById('facultySelect').options[document.getElementById('facultySelect').selectedIndex].text;
-            const currentProxy = getActiveProxy();
             
             addLog(`🔄 جاري جلب نتائج [${selectedFacultyText}]...`);
             
@@ -400,7 +393,6 @@
                 
                 document.getElementById('fetchDataBtn').disabled = false;
                 document.getElementById('facultySelect').disabled = false;
-                document.getElementById('proxySelect').disabled = false;
                 addLog('تم إيقاف المراقبة.', 'warning');
             } else {
                 if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
@@ -412,7 +404,6 @@
                 
                 document.getElementById('fetchDataBtn').disabled = true;
                 document.getElementById('facultySelect').disabled = true;
-                document.getElementById('proxySelect').disabled = true;
                 document.getElementById('resultCard').classList.add('hidden');
                 previousResponseLength = 0; 
                 
