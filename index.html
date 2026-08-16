@@ -147,8 +147,8 @@
         </div>
     </div>
 
-    <!-- Audio element for notification -->
-    <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
+    <!-- Audio element for notification (تم تغيير الصوت ليكون أعلى وأكثر حدة) -->
+    <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/mechanical_clock_ring.ogg" preload="auto"></audio>
 
     <script>
         // استخدام مسار Vercel الداخلي 
@@ -168,8 +168,12 @@
 
         const logContainer = document.getElementById('logContainer');
         const alertSound = document.getElementById('alertSound');
+        
+        // إجبار المتصفح على تشغيل الصوت بأقصى درجة ممكنة (100%)
+        alertSound.volume = 1.0; 
 
         function testSound() {
+            alertSound.volume = 1.0; 
             alertSound.currentTime = 0; // إعادة الصوت من البداية لو كان شغال
             alertSound.play().catch(e => {
                 addLog('يجب التفاعل مع الصفحة أولاً لتشغيل الصوت.', 'warning');
