@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مراقب النتائج المتقدم - جامعة طنطا</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- إضافة مكتبة Tone.js لتوليد صوت إنذار قوي برمجياً -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
@@ -147,8 +149,7 @@
         </div>
     </div>
 
-    <!-- Audio element for notification (تم تغيير الصوت ليكون أعلى وأكثر حدة) -->
-    <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/mechanical_clock_ring.ogg" preload="auto"></audio>
+    <!-- تم حذف ملف الـ audio العادي لأننا سنولد الصوت برمجياً -->
 
     <script>
         // استخدام مسار Vercel الداخلي 
@@ -167,17 +168,36 @@
         let previousResponseLength = 0; 
 
         const logContainer = document.getElementById('logContainer');
-        const alertSound = document.getElementById('alertSound');
         
-        // إجبار المتصفح على تشغيل الصوت بأقصى درجة ممكنة (100%)
-        alertSound.volume = 1.0; 
+        // دالة توليد الإنذار المزعج والعالي جداً
+        async function playLoudAlarm() {
+            try {
+                // تفعيل محرك الصوت
+                await Tone.start();
+                
+                // تضخيم الصوت (Boost) أعلى من الطبيعي (+12 ديسيبل)
+                Tone.Destination.volume.value = 12; 
+
+                // إنشاء مولد موجات مربعة (Square Wave) لأنه يصدر صوتاً حاداً وثاقباً
+                const synth = new Tone.Synth({
+                    oscillator: { type: "square" },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.5 }
+                }).toDestination();
+
+                const now = Tone.now();
+                // نغمة إنذار سريعة وحادة (بيب - بيب - بيب - بيييييب) بترددات عالية
+                synth.triggerAttackRelease("C6", "16n", now);
+                synth.triggerAttackRelease("C6", "16n", now + 0.15);
+                synth.triggerAttackRelease("C6", "16n", now + 0.3);
+                synth.triggerAttackRelease("F6", "4n", now + 0.5);
+                
+            } catch (e) {
+                console.log("فشل تشغيل الصوت", e);
+            }
+        }
 
         function testSound() {
-            alertSound.volume = 1.0; 
-            alertSound.currentTime = 0; // إعادة الصوت من البداية لو كان شغال
-            alertSound.play().catch(e => {
-                addLog('يجب التفاعل مع الصفحة أولاً لتشغيل الصوت.', 'warning');
-            });
+            playLoudAlarm();
         }
 
         function addLog(message, type = 'info') {
@@ -394,7 +414,7 @@
                     document.getElementById('resultCard').classList.remove('hidden');
                     
                     if (document.getElementById('notifySound').checked) {
-                        alertSound.play().catch(e => console.log('Autoplay blocked'));
+                        playLoudAlarm(); // تشغيل الإنذار المبرمج
                         if ("Notification" in window && Notification.permission === "granted") {
                             new Notification("تحديث في نتائج طنطا!", { body: `تم رصد تغيير في نتائج ${selectedFacultyText}` });
                         }
