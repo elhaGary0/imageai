@@ -1,19 +1,431 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
+<html lang="ar" dir="rtl">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>React Playground</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>مراقب النتائج المتقدم - جامعة طنطا</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-      * { font-family: 'Inter', system-ui, sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background-color: #f8fafc; }
+        .log-container { max-height: 250px; overflow-y: auto; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .pulse-green {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            animation: pulse-green-anim 2s infinite;
+        }
+        @keyframes pulse-green-anim {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
     </style>
-  </head>
-  <body class="min-h-screen bg-zinc-950 text-white antialiased">
-    <div id="root"></div>
-    <script src="src/index.jsx"></script>
-  </body>
+</head>
+<body class="text-gray-800 p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-center border-b pb-4 mb-6 gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-blue-800 rounded-full flex items-center justify-center text-white text-xl shadow">
+                    <i class="fas fa-university"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">مراقب النتائج (جامعة طنطا)</h1>
+                    <p class="text-sm text-gray-500">يتصل بالخوادم ويستخرج الجداول تلقائياً</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div id="statusBadge" class="px-4 py-2 rounded-full text-sm font-bold bg-gray-200 text-gray-600 flex items-center gap-2 shadow-inner">
+                    <div id="statusDot" class="w-3 h-3 rounded-full bg-gray-500"></div>
+                    <span id="statusText">جاهز</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup Phase (Important for ASP.NET) -->
+        <div id="setupSection" class="bg-blue-50 p-5 rounded-lg border border-blue-200 mb-6 shadow-sm">
+            <h2 class="font-bold text-blue-900 mb-3 text-lg"><i class="fas fa-plug ml-2"></i>الخطوة 1: الاتصال الأولي وسحب البيانات</h2>
+            <p class="text-sm text-blue-800 mb-4">يجب الاتصال بالموقع أولاً لسحب البيانات المشفرة وقائمة الكليات.</p>
+            
+            <div class="flex flex-wrap gap-4 items-end">
+                <button id="fetchDataBtn" onclick="initiateHandshake()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md">
+                    <i class="fas fa-sync-alt ml-2"></i> جلب بيانات الموقع الآن
+                </button>
+                <div id="loadingInit" class="hidden text-blue-600 text-sm font-bold">
+                    <div class="loader ml-2"></div> جاري الاتصال...
+                </div>
+            </div>
+
+            <!-- This will appear after handshake -->
+            <div id="facultySelectionDiv" class="mt-4 pt-4 border-t border-blue-200 hidden">
+                <label class="block text-sm font-bold text-gray-700 mb-2">الخطوة 2: اختر الكلية المراد مراقبتها:</label>
+                <div class="flex gap-4 items-center">
+                    <select id="facultySelect" class="border border-gray-300 rounded-md p-2 bg-white flex-grow focus:ring-blue-500 focus:border-blue-500 font-bold shadow-sm">
+                        <!-- Options will be populated here dynamically -->
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoring Settings -->
+        <div id="monitoringSection" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 opacity-50 pointer-events-none transition-opacity duration-300">
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-cog ml-2"></i>إعدادات المراقبة</h3>
+                
+                <div class="flex items-center gap-3 mb-3">
+                    <label class="text-sm font-medium text-gray-700 w-24">فحص كل:</label>
+                    <select id="intervalSelect" class="border border-gray-300 rounded-md p-1 bg-white text-sm flex-grow">
+                        <option value="60000">1 دقيقة</option>
+                        <option value="120000">2 دقيقة</option>
+                        <option value="300000" selected>5 دقائق</option>
+                        <option value="600000">10 دقائق</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2 mb-4 mt-4">
+                    <input type="checkbox" id="notifySound" checked class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
+                    <label for="notifySound" class="text-sm text-gray-700">تفعيل التنبيه الصوتي والإشعارات</label>
+                </div>
+                
+                <button id="toggleBtn" onclick="toggleTracking()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md">
+                    <i class="fas fa-play ml-2"></i> بدء المراقبة المستمرة
+                </button>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 flex flex-col justify-center shadow-sm">
+                <h3 class="font-bold text-blue-800 mb-2"><i class="fas fa-rocket ml-2"></i>تعمل عبر Vercel</h3>
+                <p class="text-sm text-blue-700 leading-relaxed mb-2">
+                    تم ضبط هذا التطبيق ليعمل باستخدام <span class="font-bold">Vercel Rewrites</span>. سيتم توجيه الطلبات داخلياً لتخطي حماية CORS بشكل آمن ومستقر 100%.
+                </p>
+            </div>
+        </div>
+
+        <!-- Latest Finding Alert -->
+        <div id="resultCard" class="hidden bg-green-50 border-2 border-green-400 rounded-lg p-6 mb-6 shadow-sm">
+            <div class="flex items-start gap-4">
+                <div class="text-green-500 text-4xl mt-1"><i class="fas fa-bell pulse-green rounded-full"></i></div>
+                <div class="w-full">
+                    <h2 class="text-xl font-bold text-green-800 mb-2">تم رصد تحديث في النتائج!</h2>
+                    <p class="text-green-700 mb-2 text-sm">تم رصد تغيير في حجم البيانات، يرجى مراجعة الجدول بالأسفل.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Data Table Section -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden mb-6 bg-white shadow-sm">
+            <div class="bg-blue-800 text-white px-4 py-3 flex justify-between items-center">
+                <h3 class="font-bold text-sm"><i class="fas fa-table ml-2"></i>البيانات الحالية المعروضة في الموقع</h3>
+                <span id="lastUpdateTime" class="text-xs text-blue-200 font-mono bg-blue-900 px-2 py-1 rounded">لم يتم التحديث بعد</span>
+            </div>
+            <div id="currentResultsContainer" class="p-4 overflow-x-auto max-h-[500px] overflow-y-auto" dir="rtl">
+                <div class="text-gray-500 text-center py-8">
+                    <i class="fas fa-info-circle text-2xl mb-2 block text-gray-400"></i>
+                    اضغط على "بدء المراقبة المستمرة" ليتم جلب وعرض الجدول هنا تلقائياً.
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+            <div class="bg-gray-800 text-white px-4 py-2 flex justify-between items-center">
+                <h3 class="font-bold text-sm"><i class="fas fa-terminal ml-2"></i>سجل العمليات (Console)</h3>
+                <button onclick="clearLogs()" class="text-xs text-gray-300 hover:text-white transition"><i class="fas fa-trash ml-1"></i>مسح</button>
+            </div>
+            <div id="logContainer" class="log-container p-4 bg-gray-900 text-green-400 space-y-1 text-xs font-mono">
+                <div class="text-gray-500 text-center py-2">في انتظار بدء العمليات...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio element for notification -->
+    <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
+
+    <script>
+        // استخدام مسار Vercel الداخلي بدلاً من الـ Proxies الخارجية المعطلة
+        const TARGET_URL = '/api/tanta';
+        
+        // ASP.NET State Variables
+        let aspState = {
+            viewState: '',
+            viewStateGenerator: '',
+            eventValidation: '',
+            facultySelectName: ''
+        };
+
+        let trackingInterval = null;
+        let isTracking = false;
+        let previousResponseLength = 0; 
+
+        const logContainer = document.getElementById('logContainer');
+        const alertSound = document.getElementById('alertSound');
+
+        // Function to dynamically get the chosen proxy
+        function getActiveProxy() {
+            const proxyElement = document.getElementById('proxySelect');
+            return proxyElement ? proxyElement.value : 'https://corsproxy.io/?';
+        }
+
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const div = document.createElement('div');
+            let color = 'text-green-400';
+            if (type === 'error') color = 'text-red-400';
+            if (type === 'warning') color = 'text-yellow-400';
+            
+            div.className = color;
+            div.innerHTML = `<span class="text-gray-500 mr-2">[${time}]</span> ${message}`;
+            
+            if (logContainer.children.length === 1 && logContainer.children[0].classList.contains('text-center')) {
+                logContainer.innerHTML = '';
+            }
+            logContainer.insertBefore(div, logContainer.firstChild);
+        }
+
+        function clearLogs() {
+            logContainer.innerHTML = '<div class="text-gray-500 text-center py-2">تم المسح.</div>';
+        }
+
+        function extractASPState(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            try {
+                aspState.viewState = doc.getElementById('__VIEWSTATE')?.value || '';
+                aspState.viewStateGenerator = doc.getElementById('__VIEWSTATEGENERATOR')?.value || '';
+                aspState.eventValidation = doc.getElementById('__EVENTVALIDATION')?.value || '';
+                
+                // البحث عن قائمة الكليات (Select)
+                const selects = doc.querySelectorAll('select');
+                let targetSelect = null;
+                
+                selects.forEach(s => {
+                    if(s.textContent.includes('زراعة') || s.textContent.includes('هندسة') || s.textContent.includes('الكلية')) {
+                        targetSelect = s;
+                    }
+                });
+
+                if(!targetSelect && selects.length > 0) {
+                    targetSelect = selects[0]; // fallback
+                }
+
+                if (targetSelect) {
+                    aspState.facultySelectName = targetSelect.name;
+                    
+                    const uiSelect = document.getElementById('facultySelect');
+                    uiSelect.innerHTML = '';
+                    
+                    Array.from(targetSelect.options).forEach(opt => {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = opt.value;
+                        newOpt.text = opt.text.trim();
+                        // تحديد الهندسة تلقائياً إن وجدت
+                        if(opt.text.includes('هندسة')) {
+                            newOpt.selected = true;
+                        }
+                        uiSelect.appendChild(newOpt);
+                    });
+                    
+                    return true;
+                }
+                
+                throw new Error("لم يتم العثور على قائمة الكليات في الموقع.");
+            } catch(e) {
+                addLog(`فشل تحليل البيانات: ${e.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function initiateHandshake() {
+            document.getElementById('loadingInit').classList.remove('hidden');
+            document.getElementById('fetchDataBtn').disabled = true;
+            
+            addLog(`جاري الاتصال بخوادم Vercel لجلب بيانات الجامعة...`);
+            
+            try {
+                // نطلب المسار الداخلي الذي سيقوم Vercel بتحويله للجامعة
+                const response = await fetch(TARGET_URL);
+                
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                
+                const html = await response.text();
+                addLog(`تم استلام الرد (${Math.round(html.length/1024)} KB). جاري التحليل...`);
+                
+                const success = extractASPState(html);
+                
+                if (success) {
+                    addLog('✅ تم سحب البيانات بنجاح وتم التعرف على الكليات.', 'info');
+                    document.getElementById('facultySelectionDiv').classList.remove('hidden');
+                    document.getElementById('monitoringSection').classList.remove('opacity-50', 'pointer-events-none');
+                }
+                
+            } catch (error) {
+                addLog(`❌ فشل الاتصال: ${error.message}`, 'error');
+                addLog('تلميح: جرب تغيير "السيرفر الوكيل" من الإعدادات وأوقف مانع الإعلانات.', 'warning');
+            } finally {
+                document.getElementById('loadingInit').classList.add('hidden');
+                document.getElementById('fetchDataBtn').disabled = false;
+            }
+        }
+
+        async function performCheckPOST() {
+            const selectedFacultyValue = document.getElementById('facultySelect').value;
+            const selectedFacultyText = document.getElementById('facultySelect').options[document.getElementById('facultySelect').selectedIndex].text;
+            const currentProxy = getActiveProxy();
+            
+            addLog(`🔄 جاري جلب نتائج [${selectedFacultyText}]...`);
+            
+            try {
+                // بناء هيكل البيانات المطابق لـ ASP.NET Web Forms
+                const formData = new URLSearchParams();
+                formData.append('__EVENTTARGET', aspState.facultySelectName);
+                formData.append('__EVENTARGUMENT', '');
+                formData.append('__VIEWSTATE', aspState.viewState);
+                if (aspState.viewStateGenerator) formData.append('__VIEWSTATEGENERATOR', aspState.viewStateGenerator);
+                if (aspState.eventValidation) formData.append('__EVENTVALIDATION', aspState.eventValidation);
+                formData.append(aspState.facultySelectName, selectedFacultyValue);
+
+                const response = await fetch(TARGET_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData.toString()
+                });
+
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+                const html = await response.text();
+                
+                // تحديث الـ ViewState للمرات القادمة
+                extractASPState(html);
+
+                // تحليل الصفحة الجديدة
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // 1. استخراج الجدول وتنسيقه وعرضه
+                const tables = doc.querySelectorAll('table');
+                let dataTableHtml = '<p class="text-gray-500 text-center py-4">لا توجد جداول بيانات معروضة في الصفحة لهذه الكلية حالياً.</p>';
+                
+                if (tables.length > 0) {
+                    let targetTable = null;
+                    // البحث عن جدول به أكثر من صف
+                    for (let t of tables) {
+                        if (t.rows.length > 1) {
+                            targetTable = t;
+                            break;
+                        }
+                    }
+                    if (!targetTable) targetTable = tables[0];
+                    
+                    // تنظيف الجدول من تنسيقات الموقع الأصلي
+                    targetTable.removeAttribute('style');
+                    targetTable.removeAttribute('width');
+                    targetTable.removeAttribute('border');
+                    targetTable.className = 'w-full text-sm text-right text-gray-800 border-collapse whitespace-nowrap bg-white shadow-sm rounded-lg overflow-hidden';
+                    
+                    targetTable.querySelectorAll('th').forEach(th => {
+                        th.className = 'px-4 py-3 text-white bg-blue-700 border border-blue-800 font-bold';
+                        th.removeAttribute('style');
+                        th.removeAttribute('width');
+                    });
+                    
+                    targetTable.querySelectorAll('td').forEach(td => {
+                        td.className = 'px-4 py-3 border border-gray-200';
+                        td.removeAttribute('style');
+                        td.removeAttribute('width');
+                    });
+
+                    targetTable.querySelectorAll('tr').forEach((tr, index) => {
+                        if (index > 0) { 
+                            tr.className = index % 2 === 0 ? 'bg-gray-50 hover:bg-blue-50 transition' : 'bg-white hover:bg-blue-50 transition';
+                        }
+                    });
+
+                    dataTableHtml = targetTable.outerHTML;
+                }
+                
+                document.getElementById('currentResultsContainer').innerHTML = dataTableHtml;
+                document.getElementById('lastUpdateTime').textContent = new Date().toLocaleTimeString('ar-EG', { hour12: true });
+
+                // 2. التحقق من وجود تغييرات جديدة في حجم النصوص
+                doc.querySelectorAll('script, style, head, nav, footer').forEach(el => el.remove());
+                const bodyText = doc.body.textContent.replace(/\s+/g, ' ').trim();
+                const textLength = bodyText.length;
+
+                addLog(`تم جلب الجدول بنجاح وتحديث العرض.`);
+
+                if (previousResponseLength === 0) {
+                    previousResponseLength = textLength;
+                    addLog('تم تسجيل حجم البيانات الحالية كخط أساس.');
+                } else if (Math.abs(textLength - previousResponseLength) > 50) { 
+                    addLog('🚨 تم رصد تحديث في النتائج!', 'warning');
+                    
+                    document.getElementById('resultCard').classList.remove('hidden');
+                    
+                    if (document.getElementById('notifySound').checked) {
+                        alertSound.play().catch(e => console.log('Autoplay blocked'));
+                        if ("Notification" in window && Notification.permission === "granted") {
+                            new Notification("تحديث في نتائج طنطا!", { body: `تم رصد تغيير في نتائج ${selectedFacultyText}` });
+                        }
+                    }
+                    previousResponseLength = textLength; 
+                }
+
+            } catch (error) {
+                addLog(`❌ فشل جلب البيانات: ${error.message}`, 'error');
+            }
+        }
+
+        function toggleTracking() {
+            const btn = document.getElementById('toggleBtn');
+            const statusBadge = document.getElementById('statusBadge');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (isTracking) {
+                clearInterval(trackingInterval);
+                isTracking = false;
+                
+                btn.innerHTML = '<i class="fas fa-play ml-2"></i> بدء المراقبة المستمرة';
+                btn.className = "w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md";
+                statusBadge.className = "px-4 py-2 rounded-full text-sm font-bold bg-gray-200 text-gray-600 flex items-center gap-2 shadow-inner";
+                statusDot.className = "w-3 h-3 rounded-full bg-gray-500";
+                statusText.textContent = "جاهز";
+                
+                document.getElementById('fetchDataBtn').disabled = false;
+                document.getElementById('facultySelect').disabled = false;
+                document.getElementById('proxySelect').disabled = false;
+                addLog('تم إيقاف المراقبة.', 'warning');
+            } else {
+                if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                    Notification.requestPermission();
+                }
+
+                const interval = parseInt(document.getElementById('intervalSelect').value);
+                isTracking = true;
+                
+                document.getElementById('fetchDataBtn').disabled = true;
+                document.getElementById('facultySelect').disabled = true;
+                document.getElementById('proxySelect').disabled = true;
+                document.getElementById('resultCard').classList.add('hidden');
+                previousResponseLength = 0; 
+                
+                btn.innerHTML = '<i class="fas fa-stop ml-2"></i> إيقاف المراقبة';
+                btn.className = "w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition shadow-md";
+                statusBadge.className = "px-4 py-2 rounded-full text-sm font-bold bg-green-100 text-green-700 flex items-center gap-2 shadow-inner";
+                statusDot.className = "w-3 h-3 rounded-full bg-green-500 pulse-green";
+                statusText.textContent = "جاري المراقبة...";
+                
+                performCheckPOST(); 
+                trackingInterval = setInterval(performCheckPOST, interval); 
+            }
+        }
+    </script>
+</body>
 </html>
