@@ -87,9 +87,14 @@
                     </select>
                 </div>
 
-                <div class="flex items-center gap-2 mb-4 mt-4">
-                    <input type="checkbox" id="notifySound" checked class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
-                    <label for="notifySound" class="text-sm text-gray-700">تفعيل التنبيه الصوتي والإشعارات</label>
+                <div class="flex items-center justify-between mb-4 mt-4">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="notifySound" checked class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
+                        <label for="notifySound" class="text-sm text-gray-700">تفعيل التنبيه الصوتي</label>
+                    </div>
+                    <button onclick="testSound()" type="button" class="text-xs bg-white hover:bg-gray-100 text-gray-700 py-1.5 px-3 rounded-md transition shadow-sm border border-gray-300 flex items-center gap-1 font-bold">
+                        <i class="fas fa-volume-up text-blue-600"></i> تجربة الصوت
+                    </button>
                 </div>
                 
                 <button id="toggleBtn" onclick="toggleTracking()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition shadow-md">
@@ -163,6 +168,13 @@
 
         const logContainer = document.getElementById('logContainer');
         const alertSound = document.getElementById('alertSound');
+
+        function testSound() {
+            alertSound.currentTime = 0; // إعادة الصوت من البداية لو كان شغال
+            alertSound.play().catch(e => {
+                addLog('يجب التفاعل مع الصفحة أولاً لتشغيل الصوت.', 'warning');
+            });
+        }
 
         function addLog(message, type = 'info') {
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
