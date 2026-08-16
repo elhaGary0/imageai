@@ -304,63 +304,56 @@
                 // 1. استخراج الإعلانات وتنسيقها في بطاقات (Cards) بدلاً من الجدول التقليدي
                 let dataTableHtml = '<div class="flex flex-col items-center justify-center py-12 text-gray-400"><i class="fas fa-folder-open text-4xl mb-3 opacity-50"></i><p class="font-medium">لم يتم إعلان أي نتائج حتى الآن لهذه الكلية.</p></div>';
                 
-                let uniqueResults = new Set();
+                // استخدام Map لمنع التكرار نهائياً بناءً على (القسم والفرقة)
+                let uniqueResultsMap = new Map();
                 
                 // البحث في جميع الخلايا أو النصوص عن صيغة إعلان النتيجة
                 doc.querySelectorAll('td, span, a').forEach(el => {
                     let text = el.textContent.trim().replace(/\s+/g, ' ');
-                    // التأكد أن النص يحتوي على النمط الخاص بالنتيجة (مثل: الفرقة - لائحة)
-                    if (text.includes('الفرقة') && text.includes('-') && text.split('-').length > 2) {
-                        uniqueResults.add(text);
+                    // التأكد أن النص يحتوي على النمط الخاص بالنتيجة
+                    if (text.includes('الفرقة') && text.includes('-')) {
+                        const parts = text.split(/\s*-\s*/);
+                        let rawPath = parts[0] ? parts[0].trim() : '';
+                        let year = parts[1] ? parts[1].trim() : '';
+                        
+                        if (rawPath && year) {
+                            let pathParts = rawPath.split('/');
+                            // جلب الخانة الثالثة (القسم الدقيق) أو الأخيرة كبديل
+                            let major = pathParts.length >= 3 ? pathParts[2].trim() : (pathParts[pathParts.length - 1]?.trim() || 'قسم غير محدد');
+                            
+                            // المفتاح الفريد لمنع التكرار
+                            let uniqueKey = `${major}-${year}`;
+                            
+                            // إضافة النتيجة فقط إذا لم تكن موجودة مسبقاً
+                            if (!uniqueResultsMap.has(uniqueKey) && major !== 'قسم غير محدد') {
+                                uniqueResultsMap.set(uniqueKey, { major, year });
+                            }
+                        }
                     }
                 });
 
-                if (uniqueResults.size > 0) {
-                    // بناء شبكة بطاقات بتصميم (Dashboard Cards) عصري
+                if (uniqueResultsMap.size > 0) {
+                    // بناء شبكة بطاقات بتصميم مبسط وواضح
                     let newHtml = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-2">`;
                     
-                    uniqueResults.forEach(text => {
-                        const parts = text.split(/\s*-\s*/); 
-                        
-                        let rawPath = parts[0] ? parts[0].trim() : 'قسم غير محدد';
-                        let year = parts[1] ? parts[1].trim() : 'فرقة غير محددة';
-                        let term = parts[2] ? parts[2].trim() : '';
-                        let regulation = parts[3] ? parts[3].trim() : '';
-
-                        // معالجة المسار لفصل "القسم العام" عن "التخصص الدقيق"
-                        let pathParts = rawPath.split('/').map(p => p.trim()).filter(p => p !== 'كلية الهندسة');
-                        let mainMajor = pathParts.pop() || 'تخصص عام'; // التخصص الدقيق (آخر جزء)
-                        let parentMajor = pathParts.join(' <i class="fas fa-angle-left text-[10px] mx-1 text-slate-300"></i> ') || 'شعبة عامة';
-
+                    uniqueResultsMap.forEach(result => {
                         newHtml += `
-                        <div class="group relative bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all duration-300 overflow-hidden flex flex-col h-full">
+                        <div class="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-400 transition-all duration-300 overflow-hidden flex flex-col h-full items-center text-center justify-center">
                             
                             <!-- تأثيرات الخلفية عند تمرير الماوس -->
                             <div class="absolute -left-12 -top-12 w-32 h-32 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0 pointer-events-none"></div>
-                            <div class="absolute right-0 top-0 w-1 h-full bg-gradient-to-b from-blue-500 to-indigo-600 rounded-r-2xl transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-top pointer-events-none"></div>
-
-                            <div class="relative z-10 flex flex-col h-full">
-                                <!-- الرأس: الفرقة والترم -->
-                                <div class="flex justify-between items-start mb-4">
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-sm font-black border border-blue-100 shadow-sm">
-                                        <i class="fas fa-user-graduate text-blue-500"></i> ${year}
+                            
+                            <div class="relative z-10 w-full flex flex-col items-center">
+                                <!-- الرأس: الفرقة -->
+                                <div class="mb-4">
+                                    <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-sm font-black border border-indigo-100 shadow-sm">
+                                        <i class="fas fa-graduation-cap text-indigo-500 text-lg"></i> ${result.year}
                                     </span>
-                                    ${term ? `<span class="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">${term}</span>` : ''}
                                 </div>
 
-                                <!-- المحتوى: التخصص الدقيق والقسم -->
-                                <div class="mb-5 flex-grow">
-                                    <h3 class="text-lg font-black text-slate-800 leading-snug mb-2 group-hover:text-blue-700 transition-colors">${mainMajor}</h3>
-                                    <p class="text-xs font-semibold text-slate-400 flex items-center flex-wrap gap-1">
-                                        <i class="fas fa-sitemap text-slate-300 text-[10px]"></i> ${parentMajor}
-                                    </p>
-                                </div>
-
-                                <!-- التذييل: اللائحة -->
-                                <div class="mt-auto pt-3 border-t border-slate-100">
-                                    <p class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
-                                        <i class="fas fa-file-signature text-slate-300"></i> ${regulation}
-                                    </p>
+                                <!-- المحتوى: القسم -->
+                                <div>
+                                    <h3 class="text-xl font-black text-slate-800 leading-snug group-hover:text-blue-700 transition-colors">${result.major}</h3>
                                 </div>
                             </div>
                         </div>`;
